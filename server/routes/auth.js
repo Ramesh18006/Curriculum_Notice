@@ -48,7 +48,7 @@ router.post(
 // ── Register ─────────────────────────────────────────────
 router.post(
     '/register',
-    requireFields('name', 'email', 'password', 'department'),
+    requireFields('name', 'email', 'password'),
     validateEmail(),
     async (req, res, next) => {
         try {
@@ -57,7 +57,7 @@ router.post(
 
             await db.query(
                 'INSERT INTO users (name, email, password, role, department, year) VALUES (?,?,?,?,?,?)',
-                [name, email, hash, role || 'student', department, year || null]
+                [name, email, hash, role || 'student', department || null, year || null]
             );
 
             res.status(201).json({ success: true });
