@@ -27,5 +27,9 @@ setFallback(() => {
   isLoggedIn() ? renderDashboard() : renderLogin();
 });
 
+// ── Restore saved theme ──────────────────────────────────
+const savedTheme = localStorage.getItem('ch_theme');
+if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
 // ── Boot ─────────────────────────────────────────────────
 initRouter();

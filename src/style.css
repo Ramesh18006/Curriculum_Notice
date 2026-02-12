@@ -24,6 +24,92 @@
     --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* ──────────── Light Theme ──────────── */
+[data-theme="light"] {
+    --bg: #f0f2f5;
+    --surface: #ffffff;
+    --card: rgba(0, 0, 0, 0.03);
+    --card-border: rgba(0, 0, 0, 0.1);
+    --text: #1a1a2e;
+    --text-dim: #6b7280;
+    --accent: #6c5ce7;
+    --accent-glow: rgba(108, 92, 231, 0.2);
+}
+
+[data-theme="light"] .card,
+[data-theme="light"] .modal {
+    background: #ffffff;
+    border-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .tab {
+    color: #6b7280;
+}
+
+[data-theme="light"] .tab.active {
+    color: #1a1a2e;
+    border-color: var(--accent);
+}
+
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+    background: #f8f9fa;
+    border-color: #d1d5db;
+    color: #1a1a2e;
+}
+
+[data-theme="light"] .modal-backdrop {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="light"] .btn-outline {
+    border-color: #d1d5db;
+    color: #374151;
+}
+
+[data-theme="light"] .btn-outline:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--card-border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition);
+}
+
+.theme-toggle:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    transform: rotate(30deg);
+}
+
+/* Smooth transition for theme change */
+body,
+.card,
+.modal,
+.tab,
+input,
+select,
+textarea,
+.btn,
+.btn-outline {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+
 /* ──────────── Reset & Base ──────────── */
 *,
 *::before,

@@ -24,6 +24,9 @@ export async function renderDashboard() {
           </p>
         </div>
         <div class="actions">
+          <button class="theme-toggle" id="theme-toggle" title="Toggle theme">
+            ${document.documentElement.getAttribute('data-theme') === 'light' ? '☀️' : '🌙'}
+          </button>
           <select id="lang-switcher" class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:12px;">
             ${languages.map(l => `<option value="${l.code}" ${getLang() === l.code ? 'selected' : ''}>${l.label}</option>`).join('')}
           </select>
@@ -58,6 +61,16 @@ export async function renderDashboard() {
   document.getElementById('lang-switcher').onchange = (e) => {
     setLang(e.target.value);
     renderDashboard(); // Re-render with new language
+  };
+
+  // Theme toggle
+  document.getElementById('theme-toggle').onclick = () => {
+    const html = document.documentElement;
+    const isLight = html.getAttribute('data-theme') === 'light';
+    const newTheme = isLight ? 'dark' : 'light';
+    html.setAttribute('data-theme', newTheme);
+    localStorage.setItem('ch_theme', newTheme);
+    document.getElementById('theme-toggle').textContent = newTheme === 'light' ? '☀️' : '🌙';
   };
 
   const newBtn = document.getElementById('new-btn');
