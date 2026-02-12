@@ -18,7 +18,7 @@ route('#signup', renderSignup);
 route('#dashboard', renderDashboard);
 route('#create', () => {
   const user = getUser();
-  if (user?.role === 'admin') renderCreate();
+  if (user?.role === 'admin' || user?.role === 'staff') renderCreate();
   else renderDashboard();
 });
 

@@ -16,19 +16,20 @@ router.get('/', async (req, res, next) => {
         if (role === 'admin') {
             const [rows] = await db.query(
                 `SELECT c.*, u.name AS author
-         FROM circulars c JOIN users u ON c.created_by = u.id
-         ORDER BY c.created_at DESC`
+                 FROM circulars c LEFT JOIN users u ON c.created_by = u.id
+                 ORDER BY c.created_at DESC`
             );
             return res.json(rows);
         }
 
-        // Students & staff see only their dept or 'All'
+        // Students & staff see based on target_dept, target_year (if applicable), and target_role
         const [rows] = await db.query(
             `SELECT c.*, u.name AS author
-       FROM circulars c JOIN users u ON c.created_by = u.id
-       WHERE c.target_dept = 'All' OR c.target_dept = ?
-       ORDER BY c.created_at DESC`,
-            [department]
+             FROM circulars c LEFT JOIN users u ON c.created_by = u.id
+             WHERE (c.target_role = 'All' OR c.target_role = ?)
+               AND (c.target_dept = 'All' OR c.target_dept = ?)
+             ORDER BY c.created_at DESC`,
+            [role, department || 'All']
         );
         res.json(rows);
     } catch (err) {
@@ -36,20 +37,47 @@ router.get('/', async (req, res, next) => {
     }
 });
 
-// ── Create circular (admin only) ─────────────────────────
+// ── Create circular (admin & staff) ──────────────────────
 router.post(
     '/',
-    authorize('admin'),
+    authorize('admin', 'staff'),
     requireFields('title', 'content'),
     requireEnum('priority', ['low', 'medium', 'urgent']),
     async (req, res, next) => {
         try {
-            const { title, content, priority, target_dept, target_year } = req.body;
+            let { title, content, priority, target_dept, target_year, target_role } = req.body;
+
+            // Staff can only target students
+            if (req.user.role === 'staff') {
+                target_role = 'student';
+            } else {
+                target_role = target_role || 'All';
+            }
+
             const [result] = await db.query(
-                'INSERT INTO circulars (title, content, priority, target_dept, target_year, created_by) VALUES (?,?,?,?,?,?)',
-                [title, content, priority || 'low', target_dept || 'All', target_year || 'All', req.user.id]
+                'INSERT INTO circulars (title, content, priority, target_dept, target_year, target_role, created_by) VALUES (?,?,?,?,?,?,?)',
+                [title, content, priority || 'low', target_dept || 'All', target_year || 'All', target_role, req.user.id]
             );
-            res.status(201).json({ success: true, id: result.insertId });
+
+            const circularId = result.insertId;
+
+            // Enqueue notifications for all matching users
+            const [matchingUsers] = await db.query(
+                `SELECT id FROM users 
+                 WHERE (? = 'All' OR role = ?)
+                   AND (? = 'All' OR department = ?)`,
+                [target_role, target_role, target_dept || 'All', target_dept || 'All']
+            );
+
+            if (matchingUsers.length > 0) {
+                const values = matchingUsers.map(u => [u.id, circularId]);
+                await db.query(
+                    'INSERT INTO notification_queue (user_id, circular_id) VALUES ?',
+                    [values]
+                );
+            }
+
+            res.status(201).json({ success: true, id: circularId });
         } catch (err) {
             next(err);
         }
@@ -63,6 +91,13 @@ router.post('/:id/read', async (req, res, next) => {
             'INSERT IGNORE INTO circular_reads (circular_id, user_id) VALUES (?, ?)',
             [req.params.id, req.user.id]
         );
+
+        // Update notification status as seen
+        await db.query(
+            'UPDATE notification_queue SET status = "seen" WHERE circular_id = ? AND user_id = ?',
+            [req.params.id, req.user.id]
+        );
+
         res.json({ success: true });
     } catch (err) {
         next(err);

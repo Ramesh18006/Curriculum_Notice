@@ -4,7 +4,7 @@ import { navigate } from '../router.js';
 import { renderApp, toast } from '../utils.js';
 
 export function renderLogin() {
-    renderApp(`
+  renderApp(`
     <div class="auth-page">
       <div class="auth-card">
         <h1>📢 CircularHub</h1>
@@ -15,7 +15,10 @@ export function renderLogin() {
         </div>
         <div class="form-group">
           <label for="pass">Password</label>
-          <input type="password" id="pass" placeholder="••••••••" autocomplete="current-password" />
+          <div class="input-with-icon">
+            <input type="password" id="pass" placeholder="••••••••" autocomplete="current-password" />
+            <button type="button" class="toggle-password" id="toggle-pass">👁️</button>
+          </div>
         </div>
         <button class="btn btn-primary" id="login-btn">Sign In</button>
         <p style="text-align:center;margin-top:16px">
@@ -25,30 +28,39 @@ export function renderLogin() {
     </div>
   `);
 
-    document.getElementById('login-btn').onclick = handleLogin;
-    document.getElementById('to-signup').onclick = () => navigate('#signup');
-    document.getElementById('pass').addEventListener('keydown', e => {
-        if (e.key === 'Enter') handleLogin();
-    });
+  document.getElementById('login-btn').onclick = handleLogin;
+  document.getElementById('to-signup').onclick = () => navigate('#signup');
+
+  const passInput = document.getElementById('pass');
+  const toggleBtn = document.getElementById('toggle-pass');
+  toggleBtn.onclick = () => {
+    const type = passInput.type === 'password' ? 'text' : 'password';
+    passInput.type = type;
+    toggleBtn.textContent = type === 'password' ? '👁️' : '🔒';
+  };
+
+  passInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleLogin();
+  });
 }
 
 async function handleLogin() {
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('pass').value;
-    if (!email || !password) return toast('Please fill in all fields', 'warning');
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('pass').value;
+  if (!email || !password) return toast('Please fill in all fields', 'warning');
 
-    const btn = document.getElementById('login-btn');
-    btn.disabled = true;
-    btn.textContent = 'Signing in…';
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
 
-    try {
-        const { token, user } = await apiLogin(email, password);
-        setSession(user, token);
-        navigate('#dashboard');
-    } catch (err) {
-        toast(err.message || 'Invalid credentials', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.textContent = 'Sign In';
-    }
+  try {
+    const { token, user } = await apiLogin(email, password);
+    setSession(user, token);
+    navigate('#dashboard');
+  } catch (err) {
+    toast(err.message || 'Invalid credentials', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+  }
 }

@@ -8,6 +8,9 @@ CREATE DATABASE IF NOT EXISTS college_circular_db;
 USE college_circular_db;
 
 -- Drop old tables (FK-safe order)
+DROP TABLE IF EXISTS google_tokens;
+DROP TABLE IF EXISTS notification_queue;
+DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS circular_reads;
 DROP TABLE IF EXISTS circulars;
 DROP TABLE IF EXISTS bus_schedule;
@@ -33,6 +36,7 @@ CREATE TABLE circulars (
     priority    ENUM('low', 'medium', 'urgent') DEFAULT 'low',
     target_dept VARCHAR(50)  DEFAULT 'All',
     target_year VARCHAR(10)  DEFAULT 'All',
+    target_role ENUM('All', 'staff', 'student') DEFAULT 'All',
     created_by  INT,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
@@ -55,6 +59,39 @@ CREATE TABLE bus_schedule (
     route_name     VARCHAR(100) NOT NULL,
     departure_time VARCHAR(20)  NOT NULL,
     stops          TEXT         NOT NULL
+);
+
+-- ── Events (Exams, Holidays, etc.) ────────────────────────
+CREATE TABLE events (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    title       VARCHAR(255) NOT NULL,
+    type        ENUM('exam', 'holiday', 'other') DEFAULT 'other',
+    event_date  DATE NOT NULL,
+    description TEXT,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ── Notifications & Queue ─────────────────────────────────
+CREATE TABLE notification_queue (
+    id              INT AUTO_INCREMENT PRIMARY KEY,
+    user_id         INT NOT NULL,
+    circular_id     INT NOT NULL,
+    status          ENUM('pending', 'sent', 'seen') DEFAULT 'pending',
+    sent_count      INT DEFAULT 0,
+    last_sent_at    TIMESTAMP NULL,
+    next_retry_at   TIMESTAMP NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE,
+    FOREIGN KEY (circular_id) REFERENCES circulars(id) ON DELETE CASCADE
+);
+
+-- ── Google OAuth Tokens ──────────────────────────────────
+CREATE TABLE google_tokens (
+    user_id       INT PRIMARY KEY,
+    access_token  TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    expiry_date   BIGINT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- ┌──────────────────────────────────────────────────────┐

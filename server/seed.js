@@ -21,14 +21,18 @@ async function seed() {
     const staffHash = await bcrypt.hash('staff123', SALT_ROUNDS);
 
     // ── Clear existing data (in FK-safe order) ──────────────
+    await db.query('DELETE FROM google_tokens');
+    await db.query('DELETE FROM notification_queue');
     await db.query('DELETE FROM circular_reads');
     await db.query('DELETE FROM circulars');
+    await db.query('DELETE FROM events');
     await db.query('DELETE FROM bus_schedule');
     await db.query('DELETE FROM users');
 
     // ── Reset auto-increment ────────────────────────────────
     await db.query('ALTER TABLE users AUTO_INCREMENT = 1');
     await db.query('ALTER TABLE circulars AUTO_INCREMENT = 1');
+    await db.query('ALTER TABLE events AUTO_INCREMENT = 1');
     await db.query('ALTER TABLE bus_schedule AUTO_INCREMENT = 1');
 
     // ── Users ───────────────────────────────────────────────
@@ -43,11 +47,11 @@ async function seed() {
 
     // ── Circulars ───────────────────────────────────────────
     await db.query(
-        `INSERT INTO circulars (title, content, priority, target_dept, target_year, created_by) VALUES
-     ('Holiday Declaration',    'The college will remain closed on Monday due to local elections.', 'medium', 'All', 'All', 1),
-     ('Exam Schedule Released', 'End semester exams start from 15th Nov. Check portal.',            'urgent', 'All', 'All', 1),
-     ('CSE Workshop',           'AI/ML workshop for 3rd year CSE students next Friday.',            'low',    'CSE', 'III', 1),
-     ('ECE Lab Schedule',       'Updated lab schedule for ECE 2nd year students.',                  'medium', 'ECE', 'II',  1)`
+        `INSERT INTO circulars (title, content, priority, target_dept, target_year, target_role, created_by) VALUES
+     ('Holiday Declaration',    'The college will remain closed on Monday due to local elections.', 'medium', 'All', 'All', 'All', 1),
+     ('Exam Schedule Released', 'End semester exams start from 15th Nov. Check portal.',            'urgent', 'All', 'All', 'student', 1),
+     ('CSE Workshop',           'AI/ML workshop for 3rd year CSE students next Friday.',            'low',    'CSE', 'III', 'student', 1),
+     ('ECE Lab Schedule',       'Updated lab schedule for ECE 2nd year students.',                  'medium', 'ECE', 'II',  'student', 1)`
     );
 
     // ── Bus Schedule ────────────────────────────────────────
@@ -58,6 +62,18 @@ async function seed() {
      ('Route C - South Side',   '09:00 AM', 'Main Gate → Lake View → South Side → Airport Road'),
      ('Route A - Return',       '04:30 PM', 'Railway Station → City Center → MG Road → Main Gate'),
      ('Route B - Return',       '05:00 PM', 'Mall Road → North Campus → Tech Park → Main Gate')`
+    );
+
+    // ── Events ──────────────────────────────────────────────
+    const today = new Date().toISOString().split('T')[0];
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    await db.query(
+        `INSERT INTO events (title, type, event_date, description) VALUES
+     ('Independence Day', 'holiday', '2026-08-15', 'National Holiday'),
+     ('Unit Test-1', 'exam', ?, 'First unit test for all departments'),
+     ('Project Submission', 'other', ?, 'Final year project documentation submission')`,
+        [today, nextWeek]
     );
 
     console.log('✓ Database seeded successfully');

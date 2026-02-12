@@ -16,8 +16,11 @@
         "cors": "^2.8.6",
         "dotenv": "^16.4.7",
         "express": "^4.22.1",
+        "googleapis": "^144.0.0",
         "jsonwebtoken": "^9.0.2",
-        "mysql2": "^3.17.0"
+        "mysql2": "^3.17.0",
+        "node-cron": "^3.0.3",
+        "nodemailer": "^6.9.15"
     },
     "devDependencies": {
         "concurrently": "^9.1.2",

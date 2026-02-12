@@ -76,3 +76,12 @@ export function getMyProfile() {
 export function getBusSchedule() {
     return request('/bus');
 }
+
+// ── Calendar ──────────────────────────────────────────────
+export function getEvents() {
+    return request('/calendar/events');
+}
+
+export function getAuthUrl() {
+    return request('/calendar/auth/url');
+}
