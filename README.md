@@ -108,10 +108,27 @@ circularhub/
 ### Circulars (JWT Required)
 | Method | Path                          | Description          |
 | ------ | ----------------------------- | -------------------- |
-| GET    | /api/circulars                | List (filtered)      |
-| POST   | /api/circulars                | Create (admin only)  |
+| GET    | /api/circulars                | List (Role-filtered) |
+| POST   | /api/circulars                | Create (Admin/Staff) |
 | POST   | /api/circulars/:id/read       | Mark as read         |
-| GET    | /api/circulars/:id/analytics  | Read count (admin)   |
+| GET    | /api/circulars/:id/analytics  | Read count (Admin)   |
+
+---
+
+## Final Project Features ✅
+
+- **Role-Based Access Control**: Principal (Admin), Staff, and Students have distinct permissions.
+- **Smart Targeting**: Notices can be sent to "Everyone", "Staff Only", or "Students Only".
+- **Real-Time Calendar**: Integrated Google Calendar sync and local events (Exams, Holidays).
+- **Interactive Dashboard**: Detailed popups for circulars and calendar events.
+- **Email Notifications**: Automatic follow-up emails for unread urgent circulars.
+- **Mobile Responsive**: Fully adaptive design for all devices.
+
+## Development Process
+1. **Planning**: Defined schema and UI architecture for college-scale management.
+2. **Implementation**: Modularized backend with Express and secured with JWT.
+3. **Refinement**: Added premium UI aesthetics and interactive modals.
+4. **Verification**: End-to-end testing across all user roles.
 
 ### Users (JWT Required)
 | Method | Path            | Description       |

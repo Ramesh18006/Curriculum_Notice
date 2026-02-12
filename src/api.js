@@ -48,10 +48,17 @@ export function getCirculars() {
     return request('/circulars');
 }
 
-export function createCircular(payload) {
-    return request('/circulars', {
+export function createCircular(formData) {
+    // formData is a FormData object (supports file attachments)
+    const token = getToken();
+    return fetch(`${BASE}/circulars`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: formData, // No Content-Type — browser sets multipart boundary
+    }).then(async (res) => {
+        const data = await res.json().catch(() => null);
+        if (!res.ok) throw new Error(data?.error || 'Failed to create circular');
+        return data;
     });
 }
 
@@ -84,4 +91,16 @@ export function getEvents() {
 
 export function getAuthUrl() {
     return request('/calendar/auth/url');
+}
+
+// ── Comments ─────────────────────────────────────────
+export function getComments(circularId) {
+    return request(`/comments/${circularId}`);
+}
+
+export function postComment(circularId, message) {
+    return request(`/comments/${circularId}`, {
+        method: 'POST',
+        body: JSON.stringify({ message }),
+    });
 }

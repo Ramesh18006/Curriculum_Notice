@@ -63,6 +63,11 @@ export function renderCreate() {
             </select>
           </div>
         </div>
+        <div class="form-group">
+          <label for="c-attachment">📎 Attachment (PDF or Image, max 10 MB)</label>
+          <input type="file" id="c-attachment" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" />
+          <small style="color: var(--text-dim);margin-top:4px;display:block;">Optional — students will see this inside the circular detail view.</small>
+        </div>
         <div class="form-actions">
           <button class="btn btn-primary" id="publish-btn">Publish Circular</button>
         </div>
@@ -82,6 +87,7 @@ async function handleCreate() {
   const target_role = roleEl ? roleEl.value : 'student';
   const target_dept = document.getElementById('c-dept').value;
   const target_year = document.getElementById('c-year').value;
+  const fileInput = document.getElementById('c-attachment');
 
   if (!title || !content) return toast('Title and content are required', 'warning');
 
@@ -90,7 +96,18 @@ async function handleCreate() {
   btn.textContent = 'Publishing…';
 
   try {
-    await createCircular({ title, content, priority, target_role, target_dept, target_year });
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('content', content);
+    formData.append('priority', priority);
+    formData.append('target_role', target_role);
+    formData.append('target_dept', target_dept);
+    formData.append('target_year', target_year);
+    if (fileInput.files[0]) {
+      formData.append('attachment', fileInput.files[0]);
+    }
+
+    await createCircular(formData);
     toast('Circular published!', 'success');
     navigate('#dashboard');
   } catch (err) {

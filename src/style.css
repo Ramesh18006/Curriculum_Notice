@@ -402,10 +402,25 @@ select option {
     border-radius: var(--radius-sm);
     border-left: 4px solid var(--text-dim);
     transition: all var(--transition);
+    cursor: pointer;
 }
 
 .circular-item:hover {
     background: rgba(255, 255, 255, 0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.circular-preview p {
+    color: var(--text-dim);
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 10px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
 
 .circular-item.urgent {

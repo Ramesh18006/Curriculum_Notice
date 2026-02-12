@@ -18,6 +18,7 @@
         "express": "^4.22.1",
         "googleapis": "^144.0.0",
         "jsonwebtoken": "^9.0.2",
+        "multer": "^2.0.2",
         "mysql2": "^3.17.0",
         "node-cron": "^3.0.3",
         "nodemailer": "^6.9.15"

@@ -37,6 +37,7 @@ CREATE TABLE circulars (
     target_dept VARCHAR(50)  DEFAULT 'All',
     target_year VARCHAR(10)  DEFAULT 'All',
     target_role ENUM('All', 'staff', 'student') DEFAULT 'All',
+    attachment_url VARCHAR(500) DEFAULT NULL,
     created_by  INT,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
@@ -92,6 +93,17 @@ CREATE TABLE google_tokens (
     refresh_token TEXT NOT NULL,
     expiry_date   BIGINT NOT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- ── Comments / Feedback ──────────────────────────────────
+CREATE TABLE comments (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    circular_id INT NOT NULL,
+    user_id     INT NOT NULL,
+    message     TEXT NOT NULL,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (circular_id) REFERENCES circulars(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
 );
 
 -- ┌──────────────────────────────────────────────────────┐
