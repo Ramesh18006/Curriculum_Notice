@@ -376,7 +376,12 @@ async function showCircularDetail(c, stats) {
     <div class="modal" style="max-height:90vh;display:flex;flex-direction:column;">
       <div class="modal-header">
         <h3>${esc(c.title)}</h3>
-        <button class="modal-close">&times;</button>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="btn btn-outline btn-sm" id="export-pdf-btn" title="Export as PDF" style="display:flex;align-items:center;gap:4px;font-size:12px;">
+            📄 PDF
+          </button>
+          <button class="modal-close">&times;</button>
+        </div>
       </div>
       <div class="modal-body" style="overflow-y:auto;flex:1;">
         <div style="margin-bottom:16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
@@ -416,6 +421,9 @@ async function showCircularDetail(c, stats) {
   `;
 
   document.body.appendChild(overlay);
+
+  // Export PDF handler
+  overlay.querySelector('#export-pdf-btn').onclick = () => exportCircularPDF(c);
 
   // Close handlers
   const close = () => overlay.remove();
@@ -469,6 +477,135 @@ async function showCircularDetail(c, stats) {
   };
   sendBtn.onclick = sendComment;
   commentInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendComment(); });
+}
+
+// ── Export Circular as PDF ───────────────────────────────
+function exportCircularPDF(c) {
+  const priorityColors = { urgent: '#e74c3c', medium: '#f39c12', low: '#27ae60' };
+  const priorityColor = priorityColors[c.priority] || '#6c5ce7';
+
+  // Build attachment section for PDF
+  let attachSection = '';
+  if (c.attachment_url) {
+    const fullUrl = window.location.origin + c.attachment_url;
+    attachSection = `
+      <div style="margin-top:24px;padding:12px;background:#f8f9fa;border-radius:8px;border:1px solid #eee;">
+        <strong>📎 Attachment:</strong>
+        <a href="${fullUrl}" style="color:#6c5ce7;margin-left:8px;">${fullUrl}</a>
+      </div>`;
+  }
+
+  const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${esc(c.title)} — CircularHub</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      color: #1a1a2e;
+      padding: 48px;
+      max-width: 800px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+    .header {
+      border-bottom: 3px solid ${priorityColor};
+      padding-bottom: 20px;
+      margin-bottom: 28px;
+    }
+    .header h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 12px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      font-size: 13px;
+      color: #555;
+    }
+    .meta-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: white;
+      background: ${priorityColor};
+    }
+    .content {
+      font-size: 15px;
+      white-space: pre-wrap;
+      color: #333;
+    }
+    .footer {
+      margin-top: 36px;
+      padding-top: 16px;
+      border-top: 1px solid #ddd;
+      font-size: 12px;
+      color: #888;
+      display: flex;
+      justify-content: space-between;
+    }
+    .watermark {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 11px;
+      color: #bbb;
+      letter-spacing: 1px;
+    }
+    @media print {
+      body { padding: 24px; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${esc(c.title)}</h1>
+    <div class="meta">
+      <span class="badge">${esc(c.priority)}</span>
+      <span class="meta-item">📅 ${new Date(c.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+      <span class="meta-item">👤 ${esc(c.author || 'Admin')}</span>
+      ${c.target_dept !== 'All' ? `<span class="meta-item">🏢 ${esc(c.target_dept)}</span>` : ''}
+      ${c.target_year !== 'All' ? `<span class="meta-item">🎓 Year ${esc(c.target_year)}</span>` : ''}
+    </div>
+  </div>
+
+  <div class="content">${esc(c.content)}</div>
+
+  ${attachSection}
+
+  <div class="footer">
+    <span>Exported from CircularHub</span>
+    <span>${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+  </div>
+
+  <div class="watermark">
+    ── CircularHub · Digital Circular & Notice Management Platform ──
+  </div>
+
+  <script>
+    window.onload = function() { window.print(); };
+  <\/script>
+</body>
+</html>`;
+
+  const printWindow = window.open('', '_blank', 'width=800,height=900');
+  printWindow.document.write(html);
+  printWindow.document.close();
 }
 
 async function loadBus(container) {
