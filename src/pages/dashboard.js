@@ -1,7 +1,8 @@
-import { getCirculars, getMyReads, getAnalytics, markAsRead, getBusSchedule, getEvents, getAuthUrl, getComments, postComment } from '../api.js';
+import { getCirculars, getMyReads, getAnalytics, markAsRead, getBusSchedule, getEvents, getAuthUrl, getComments, postComment, getFeedback, postFeedback, getAnalyticsSummary } from '../api.js';
 import { getUser, clearSession } from '../state.js';
 import { navigate } from '../router.js';
 import { renderApp, toast, esc, formatDate } from '../utils.js';
+import { t, setLang, getLang, languages } from '../i18n.js';
 
 let activeTab = 'circulars';
 let currentMonth = new Date().getMonth();
@@ -15,7 +16,7 @@ export async function renderDashboard() {
     <div class="dashboard">
       <div class="top-bar">
         <div class="greeting">
-          <h2>Hello, ${esc(user.name)} 👋</h2>
+          <h2>${t('hello')}, ${esc(user.name)} 👋</h2>
           <p>
             <span class="badge badge-${esc(user.role)}">${esc(user.role)}</span>
             ${user.department ? `&nbsp;${esc(user.department)}` : ''}
@@ -23,14 +24,19 @@ export async function renderDashboard() {
           </p>
         </div>
         <div class="actions">
-          ${(user.role === 'admin' || user.role === 'staff') ? '<button class="btn btn-primary btn-sm" id="new-btn">+ New Circular</button>' : ''}
-          <button class="btn btn-outline btn-sm" id="logout-btn">Logout</button>
+          <select id="lang-switcher" class="btn btn-outline btn-sm" style="padding:4px 8px;font-size:12px;">
+            ${languages.map(l => `<option value="${l.code}" ${getLang() === l.code ? 'selected' : ''}>${l.label}</option>`).join('')}
+          </select>
+          ${(user.role === 'admin' || user.role === 'staff') ? `<button class="btn btn-primary btn-sm" id="new-btn">${t('newCircular')}</button>` : ''}
+          <button class="btn btn-outline btn-sm" id="logout-btn">${t('logout')}</button>
         </div>
       </div>
       <div class="tabs" role="tablist">
-        <button class="tab ${activeTab === 'circulars' ? 'active' : ''}" data-tab="circulars" role="tab" aria-selected="${activeTab === 'circulars'}">📢 Circulars</button>
-        <button class="tab ${activeTab === 'calendar' ? 'active' : ''}" data-tab="calendar" role="tab" aria-selected="${activeTab === 'calendar'}">📅 Calendar</button>
-        <button class="tab ${activeTab === 'bus' ? 'active' : ''}" data-tab="bus" role="tab" aria-selected="${activeTab === 'bus'}">🚌 Bus Schedule</button>
+        <button class="tab ${activeTab === 'circulars' ? 'active' : ''}" data-tab="circulars" role="tab">${t('tabCirculars')}</button>
+        <button class="tab ${activeTab === 'calendar' ? 'active' : ''}" data-tab="calendar" role="tab">${t('tabCalendar')}</button>
+        <button class="tab ${activeTab === 'feedback' ? 'active' : ''}" data-tab="feedback" role="tab">${t('tabFeedback')}</button>
+        ${(user.role === 'admin' || user.role === 'staff') ? `<button class="tab ${activeTab === 'analytics' ? 'active' : ''}" data-tab="analytics" role="tab">${t('tabAnalytics')}</button>` : ''}
+        <button class="tab ${activeTab === 'bus' ? 'active' : ''}" data-tab="bus" role="tab">${t('tabBus')}</button>
       </div>
       <div id="tab-content" role="tabpanel">
         <div class="loading-skeleton">
@@ -46,6 +52,12 @@ export async function renderDashboard() {
   document.getElementById('logout-btn').onclick = () => {
     clearSession();
     navigate('#login');
+  };
+
+  // Language switcher
+  document.getElementById('lang-switcher').onchange = (e) => {
+    setLang(e.target.value);
+    renderDashboard(); // Re-render with new language
   };
 
   const newBtn = document.getElementById('new-btn');
@@ -80,6 +92,8 @@ async function loadTabContent() {
 
   if (activeTab === 'circulars') await loadCirculars(container);
   else if (activeTab === 'calendar') await loadCalendar(container);
+  else if (activeTab === 'feedback') await loadFeedback(container);
+  else if (activeTab === 'analytics') await loadAnalyticsDashboard(container);
   else await loadBus(container);
 }
 
@@ -105,7 +119,7 @@ async function loadCalendar(container) {
               </div>
               <button class="btn btn-outline btn-sm google-btn" id="connect-google">
                 <img src="https://www.gstatic.com/images/branding/product/1x/calendar_32dp.png" width="16" />
-                Sync Google Calendar
+                ${t('syncGoogle')}
               </button>
             </div>
             <div class="calendar-grid">
@@ -179,7 +193,7 @@ async function loadCalendar(container) {
     });
 
   } catch (err) {
-    container.innerHTML = '<div class="empty-state">Failed to load calendar events.</div>';
+    container.innerHTML = `<div class="empty-state">${t('failedCalendar')}</div>`;
   }
 }
 
@@ -189,7 +203,7 @@ function showEventModal(dateStr, events) {
     <div class="modal-backdrop">
       <div class="modal">
         <div class="modal-header">
-          <h3>Events for ${dateStr}</h3>
+          <h3>${t('eventsFor')} ${dateStr}</h3>
           <button class="modal-close">&times;</button>
         </div>
         <div class="modal-body">
@@ -199,7 +213,7 @@ function showEventModal(dateStr, events) {
                 <span class="badge badge-${esc(e.type)}">${esc(e.type)}</span>
                 ${esc(e.title)}
               </div>
-              <p class="event-desc">${esc(e.description || 'No description provided')}</p>
+              <p class="event-desc">${esc(e.description || t('noDescription'))}</p>
             </div>
           `).join('')}
         </div>
@@ -224,36 +238,47 @@ async function loadCirculars(container) {
 
     const readSet = new Set(readIds);
 
+    // Sort: pinned urgent unread first, then by date
+    const sorted = [...circulars].sort((a, b) => {
+      const aUrgentUnread = a.priority === 'urgent' && !readSet.has(a.id) && a.created_by !== user.id;
+      const bUrgentUnread = b.priority === 'urgent' && !readSet.has(b.id) && b.created_by !== user.id;
+      if (aUrgentUnread && !bUrgentUnread) return -1;
+      if (!aUrgentUnread && bUrgentUnread) return 1;
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
     // Analytics (for Admin and Authors)
     let analytics = {};
-    const needsAnalytics = circulars
+    const needsAnalytics = sorted
       .map((c, i) => (user.role === 'admin' || c.created_by === user.id) ? i : -1)
       .filter(i => i !== -1);
 
     if (needsAnalytics.length > 0) {
       try {
         const results = await Promise.all(
-          needsAnalytics.map(i => getAnalytics(circulars[i].id))
+          needsAnalytics.map(i => getAnalytics(sorted[i].id))
         );
         needsAnalytics.forEach((circIdx, resIdx) => {
-          analytics[circulars[circIdx].id] = results[resIdx];
+          analytics[sorted[circIdx].id] = results[resIdx];
         });
       } catch (e) {
         console.warn('Failed to load analytics', e);
       }
     }
 
-    if (!circulars.length) {
-      container.innerHTML = '<div class="empty-state">No circulars to show.</div>';
+    if (!sorted.length) {
+      container.innerHTML = `<div class="empty-state">${t('noCirculars')}</div>`;
       return;
     }
 
     container.innerHTML = `
       <div class="circulars-feed">
-        ${circulars.map((c, idx) => {
+        ${sorted.map((c, idx) => {
       const isRead = readSet.has(c.id);
+      const isPinned = c.priority === 'urgent' && !isRead && c.created_by !== user.id;
       return `
-            <div class="circular-item ${esc(c.priority)}" data-idx="${idx}">
+            <div class="circular-item ${esc(c.priority)}${isPinned ? ' pinned' : ''}" data-idx="${idx}">
+              ${isPinned ? `<div class="pin-badge">${t('pinned')}</div>` : ''}
               <div class="circular-header">
                 <strong>${esc(c.title)}</strong>
                 <div class="circular-meta">
@@ -265,11 +290,11 @@ async function loadCirculars(container) {
                 <p>${esc(c.content.substring(0, 120))}${c.content.length > 120 ? '...' : ''}</p>
               </div>
               <div class="circular-footer">
-                <span class="info">By ${c.created_by === user.id ? '<strong>You</strong>' : esc(c.author || 'Admin')} · ${formatDate(c.created_at)}${analytics[c.id] ? ` · 👁 ${analytics[c.id].read_count}/${analytics[c.id].total_count} read` : ''}</span>
+                <span class="info">${t('by')} ${c.created_by === user.id ? `<strong>${t('byYou')}</strong>` : esc(c.author || 'Admin')} · ${formatDate(c.created_at)}${analytics[c.id] ? ` · 👁 ${analytics[c.id].read_count}/${analytics[c.id].total_count} ${t('readLabel')}` : ''}</span>
                 ${(user.role !== 'admin' && c.created_by !== user.id)
           ? (isRead
-            ? '<button class="btn btn-read btn-sm" disabled>✓ Read</button>'
-            : `<button class="btn btn-success btn-sm mark-read" data-id="${c.id}">Mark as Read</button>`)
+            ? `<button class="btn btn-read btn-sm" disabled>${t('read')}</button>`
+            : `<button class="btn btn-success btn-sm mark-read" data-id="${c.id}">${t('markAsRead')}</button>`)
           : ''}
               </div>
             </div>`;
@@ -283,13 +308,15 @@ async function loadCirculars(container) {
         const circularId = btn.getAttribute('data-id');
         try {
           await markAsRead(circularId);
-          btn.textContent = '✓ Read';
+          btn.textContent = t('read');
           btn.className = 'btn btn-read btn-sm';
           btn.disabled = true;
           btn.onclick = null;
-          toast('Marked as read', 'success');
+          toast(t('markedAsRead'), 'success');
+          // Re-sort by reloading to move pinned item to normal position
+          loadCirculars(container);
         } catch (err) {
-          toast(err.message || 'Failed to mark as read', 'error');
+          toast(err.message || t('failedCirculars'), 'error');
         }
       };
     });
@@ -302,7 +329,7 @@ async function loadCirculars(container) {
         if (e.target.closest('button')) return;
 
         const idx = parseInt(item.getAttribute('data-idx'));
-        const circular = circulars[idx];
+        const circular = sorted[idx];
         if (circular) showCircularDetail(circular, analytics[circular.id]);
       });
     });
@@ -359,29 +386,29 @@ async function showCircularDetail(c, stats) {
         </div>
         ${stats ? `
           <div style="margin-bottom:16px; padding:14px; background:rgba(108,92,231,0.08); border-radius:10px; border:1px solid rgba(108,92,231,0.2);">
-            <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">📊 Read Analytics</div>
+            <div style="font-size:11px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">${t('readAnalytics')}</div>
             <div style="display:flex; gap:20px; font-size:14px; font-weight:600;">
-              <span>✅ ${stats.read_count} Read</span>
-              <span>⏳ ${stats.unread_count} Unread</span>
-              <span>👥 ${stats.total_count} Total</span>
+              <span>✅ ${stats.read_count} ${t('readWord')}</span>
+              <span>⏳ ${stats.unread_count} ${t('unread')}</span>
+              <span>👥 ${stats.total_count} ${t('total')}</span>
             </div>
           </div>
         ` : ''}
         <div style="white-space:pre-wrap; font-size:15px; color:var(--text); line-height:1.7;">${esc(c.content)}</div>
         ${attachmentHTML}
         <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--card-border); font-size:13px; color:var(--text-dim);">
-          Published by <strong>${c.created_by === user?.id ? 'You' : esc(c.author || 'Admin')}</strong> on ${formatDate(c.created_at)}
+          ${t('publishedBy')} <strong>${c.created_by === user?.id ? t('byYou') : esc(c.author || 'Admin')}</strong> ${t('on')} ${formatDate(c.created_at)}
         </div>
 
         <!-- Comments / Feedback Section -->
         <div style="margin-top:24px; padding-top:16px; border-top:1px solid var(--card-border);">
-          <h4 style="margin:0 0 12px;font-size:14px;">💬 Comments & Feedback</h4>
+          <h4 style="margin:0 0 12px;font-size:14px;">${t('commentsTitle')}</h4>
           <div id="comments-list" style="max-height:200px;overflow-y:auto;margin-bottom:12px;">
-            <div style="color:var(--text-dim);font-size:13px;">Loading comments...</div>
+            <div style="color:var(--text-dim);font-size:13px;">${t('loadingComments')}</div>
           </div>
           <div style="display:flex;gap:8px;">
-            <input id="comment-input" placeholder="Write a comment..." style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--card);color:var(--text);font-size:13px;" />
-            <button id="comment-send" class="btn btn-primary btn-sm" style="white-space:nowrap;">Send</button>
+            <input id="comment-input" placeholder="${t('writeComment')}" style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--card);color:var(--text);font-size:13px;" />
+            <button id="comment-send" class="btn btn-primary btn-sm" style="white-space:nowrap;">${t('send')}</button>
           </div>
         </div>
       </div>
@@ -403,7 +430,7 @@ async function showCircularDetail(c, stats) {
     try {
       const comments = await getComments(c.id);
       if (!comments.length) {
-        commentsList.innerHTML = '<div style="color:var(--text-dim);font-size:13px;padding:8px 0;">No comments yet. Be the first to share feedback!</div>';
+        commentsList.innerHTML = `<div style="color:var(--text-dim);font-size:13px;padding:8px 0;">${t('noComments')}</div>`;
       } else {
         commentsList.innerHTML = comments.map(cm => `
           <div style="padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
@@ -418,7 +445,7 @@ async function showCircularDetail(c, stats) {
         commentsList.scrollTop = commentsList.scrollHeight;
       }
     } catch {
-      commentsList.innerHTML = '<div style="color:var(--text-dim);font-size:13px;">Failed to load comments.</div>';
+      commentsList.innerHTML = `<div style="color:var(--text-dim);font-size:13px;">${t('failedComments')}</div>`;
     }
   }
   loadComments();
@@ -435,7 +462,7 @@ async function showCircularDetail(c, stats) {
       commentInput.value = '';
       await loadComments();
     } catch (err) {
-      toast(err.message || 'Failed to send comment', 'error');
+      toast(err.message || t('failedComments'), 'error');
     } finally {
       sendBtn.disabled = false;
     }
@@ -448,15 +475,15 @@ async function loadBus(container) {
   try {
     const buses = await getBusSchedule();
     if (!buses.length) {
-      container.innerHTML = '<div class="empty-state">No bus schedules available.</div>';
+      container.innerHTML = `<div class="empty-state">${t('noBus')}</div>`;
       return;
     }
     container.innerHTML = `
       <div class="card">
-        <h3>🚌 Bus Schedule</h3>
+        <h3>${t('busSchedule')}</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Route</th><th>Time</th><th>Stops</th></tr></thead>
+            <thead><tr><th>${t('route')}</th><th>${t('time')}</th><th>${t('stops')}</th></tr></thead>
             <tbody>
               ${buses.map(b => `<tr><td><strong>${esc(b.route_name)}</strong></td><td>${esc(b.departure_time)}</td><td>${esc(b.stops)}</td></tr>`).join('')}
             </tbody>
@@ -464,6 +491,169 @@ async function loadBus(container) {
         </div>
       </div>`;
   } catch {
-    container.innerHTML = '<div class="empty-state">Failed to load bus schedule.</div>';
+    container.innerHTML = `<div class="empty-state">${t('failedBus')}</div>`;
+  }
+}
+
+// ── Feedback Tab ─────────────────────────────────────────
+async function loadFeedback(container) {
+  const user = getUser();
+  try {
+    const feedbacks = await getFeedback();
+
+    const isStaffOrAdmin = user.role === 'admin' || user.role === 'staff';
+
+    container.innerHTML = `
+      <div class="feedback-section">
+        ${!isStaffOrAdmin ? `
+          <div class="card" style="margin-bottom:20px;">
+            <h3 style="margin:0 0 12px;">${t('shareIdeas')}</h3>
+            <p style="color:var(--text-dim);font-size:13px;margin-bottom:12px;">${t('feedbackHint')}</p>
+            <div class="form-group" style="margin-bottom:10px;">
+              <select id="fb-category" style="padding:8px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--card);color:var(--text);font-size:13px;width:100%;">
+                <option value="general">${t('categoryGeneral')}</option>
+                <option value="website">${t('categoryWebsite')}</option>
+                <option value="college">${t('categoryCollege')}</option>
+                <option value="academics">${t('categoryAcademics')}</option>
+                <option value="infrastructure">${t('categoryInfra')}</option>
+              </select>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <textarea id="fb-message" placeholder="${t('feedbackPlaceholder')}" rows="3" style="flex:1;padding:10px 12px;border-radius:8px;border:1px solid var(--card-border);background:var(--card);color:var(--text);font-size:13px;resize:vertical;"></textarea>
+            </div>
+            <button class="btn btn-primary btn-sm" id="fb-send" style="margin-top:10px;">${t('submitFeedback')}</button>
+          </div>
+        ` : `<h3 style="margin:0 0 16px;">${t('studentFeedback')}</h3>`}
+
+        <div id="fb-list">
+          ${feedbacks.length === 0
+        ? `<div class="empty-state">${t('noFeedback')}</div>`
+        : feedbacks.map(f => `
+              <div class="card" style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <div>
+                    <strong>${esc(f.author_name)}</strong>
+                    <span class="badge badge-${f.author_role === 'admin' ? 'urgent' : f.author_role === 'staff' ? 'staff' : 'student'}" style="font-size:10px;padding:1px 6px;margin-left:4px;">${esc(f.author_role)}</span>
+                    ${f.department ? `<span style="color:var(--text-dim);font-size:12px;margin-left:4px;">${esc(f.department)}</span>` : ''}
+                  </div>
+                  <span style="font-size:12px;color:var(--text-dim);">${formatDate(f.created_at)}</span>
+                </div>
+                <div style="display:flex;gap:6px;margin-bottom:8px;">
+                  <span class="badge badge-student" style="font-size:10px;padding:2px 8px;text-transform:capitalize;">${esc(f.category || 'general')}</span>
+                </div>
+                <p style="margin:0;font-size:14px;color:var(--text);line-height:1.6;">${esc(f.message)}</p>
+              </div>
+            `).join('')
+      }
+        </div>
+      </div>
+    `;
+
+    // Submit feedback handler (students)
+    const sendBtn = document.getElementById('fb-send');
+    if (sendBtn) {
+      sendBtn.onclick = async () => {
+        const msg = document.getElementById('fb-message').value.trim();
+        const cat = document.getElementById('fb-category').value;
+        if (!msg) return toast(t('feedbackPlaceholder'), 'warning');
+        sendBtn.disabled = true;
+        sendBtn.textContent = t('sending');
+        try {
+          await postFeedback(msg, cat);
+          toast(t('feedbackSubmitted'), 'success');
+          loadFeedback(container); // Refresh
+        } catch (err) {
+          toast(err.message || t('failedFeedback'), 'error');
+        } finally {
+          sendBtn.disabled = false;
+          sendBtn.textContent = t('submitFeedback');
+        }
+      };
+    }
+  } catch {
+    container.innerHTML = `<div class="empty-state">${t('failedFeedback')}</div>`;
+  }
+}
+
+// ── Analytics Dashboard Tab ──────────────────────────────
+async function loadAnalyticsDashboard(container) {
+  try {
+    const stats = await getAnalyticsSummary();
+
+    container.innerHTML = `
+      <div class="analytics-dashboard">
+        <h3 style="margin:0 0 20px;">${t('engagementTitle')}</h3>
+
+        <!-- Overview Cards -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;">
+          <div class="card" style="text-align:center;padding:20px;">
+            <div style="font-size:28px;font-weight:700;color:var(--primary);">${stats.total_circulars}</div>
+            <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;margin-top:4px;">${t('circulars')}</div>
+          </div>
+          <div class="card" style="text-align:center;padding:20px;">
+            <div style="font-size:28px;font-weight:700;color:#00b894;">${stats.total_reads}</div>
+            <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;margin-top:4px;">${t('totalReads')}</div>
+          </div>
+          <div class="card" style="text-align:center;padding:20px;">
+            <div style="font-size:28px;font-weight:700;color:#fdcb6e;">${stats.overall_read_rate}%</div>
+            <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;margin-top:4px;">${t('readRate')}</div>
+          </div>
+          <div class="card" style="text-align:center;padding:20px;">
+            <div style="font-size:28px;font-weight:700;color:#e17055;">${stats.total_comments}</div>
+            <div style="font-size:12px;color:var(--text-dim);text-transform:uppercase;margin-top:4px;">${t('comments')}</div>
+          </div>
+        </div>
+
+        <!-- Reach % bar -->
+        <div class="card" style="margin-bottom:20px;padding:20px;">
+          <div style="font-size:13px;color:var(--text-dim);margin-bottom:8px;">${t('overallReach')}</div>
+          <div style="background:rgba(108,92,231,0.1);border-radius:8px;height:24px;overflow:hidden;">
+            <div style="background:linear-gradient(90deg,var(--primary),#a29bfe);height:100%;width:${Math.min(stats.overall_read_rate, 100)}%;border-radius:8px;transition:width 0.6s ease;display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;font-weight:600;">
+              ${stats.overall_read_rate}%
+            </div>
+          </div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:6px;">${stats.total_reads} of ${stats.total_audience} targeted users have read at least one circular</div>
+        </div>
+
+        <!-- Per-circular breakdown -->
+        <div class="card" style="padding:20px;">
+          <h4 style="margin:0 0 14px;font-size:14px;">${t('recentPerformance')}</h4>
+          ${stats.per_circular.length === 0
+        ? `<div style="color:var(--text-dim);font-size:13px;">${t('noCircularsYet')}</div>`
+        : `<div class="table-wrap"><table style="width:100%;">
+                <thead><tr>
+                  <th style="text-align:left;">${t('colTitle')}</th>
+                  <th>${t('colPriority')}</th>
+                  <th>${t('colAudience')}</th>
+                  <th>${t('colReads')}</th>
+                  <th>${t('colReadRate')}</th>
+                  <th>${t('colPublished')}</th>
+                </tr></thead>
+                <tbody>
+                  ${stats.per_circular.map(c => `
+                    <tr>
+                      <td style="text-align:left;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c.title)}</td>
+                      <td><span class="badge badge-${esc(c.priority)}">${esc(c.priority)}</span></td>
+                      <td>${c.audience}</td>
+                      <td>${c.reads}</td>
+                      <td>
+                        <div style="display:flex;align-items:center;gap:6px;">
+                          <div style="flex:1;background:rgba(108,92,231,0.1);border-radius:4px;height:8px;overflow:hidden;min-width:60px;">
+                            <div style="height:100%;width:${c.read_rate}%;background:${c.read_rate >= 70 ? '#00b894' : c.read_rate >= 40 ? '#fdcb6e' : '#e17055'};border-radius:4px;"></div>
+                          </div>
+                          <span style="font-size:12px;font-weight:600;">${c.read_rate}%</span>
+                        </div>
+                      </td>
+                      <td style="font-size:12px;color:var(--text-dim);">${formatDate(c.created_at)}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table></div>`
+      }
+        </div>
+      </div>
+    `;
+  } catch {
+    container.innerHTML = `<div class="empty-state">${t('failedAnalytics')}</div>`;
   }
 }

@@ -22,6 +22,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/calendar', require('./routes/calendar'));
 app.use('/api/circulars', require('./routes/circulars'));
 app.use('/api/comments', require('./routes/comments'));
+app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/bus', require('./routes/bus'));
 app.use('/api/users', require('./routes/users'));
 

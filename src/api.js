@@ -104,3 +104,20 @@ export function postComment(circularId, message) {
         body: JSON.stringify({ message }),
     });
 }
+
+// ── Feedback ─────────────────────────────────────────
+export function getFeedback() {
+    return request('/feedback');
+}
+
+export function postFeedback(message, category) {
+    return request('/feedback', {
+        method: 'POST',
+        body: JSON.stringify({ message, category }),
+    });
+}
+
+// ── Analytics Summary ────────────────────────────────
+export function getAnalyticsSummary() {
+    return request('/circulars/stats/summary');
+}

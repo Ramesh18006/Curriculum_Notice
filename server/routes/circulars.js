@@ -47,7 +47,7 @@ router.post(
     upload.single('attachment'),
     async (req, res, next) => {
         try {
-            let { title, content, priority, target_dept, target_year, target_role } = req.body;
+            let { title, content, priority, target_dept, target_year, target_role, event_date, event_type } = req.body;
 
             if (!title || !content) {
                 return res.status(400).json({ error: 'Title and content are required' });
@@ -63,9 +63,13 @@ router.post(
             // Build attachment URL if file was uploaded
             const attachment_url = req.file ? `/uploads/${req.file.filename}` : null;
 
+            // Normalize event fields
+            const ev_date = event_date || null;
+            const ev_type = event_date ? (event_type || 'event') : null;
+
             const [result] = await db.query(
-                'INSERT INTO circulars (title, content, priority, target_dept, target_year, target_role, attachment_url, created_by) VALUES (?,?,?,?,?,?,?,?)',
-                [title, content, priority || 'low', target_dept || 'All', target_year || 'All', target_role, attachment_url, req.user.id]
+                'INSERT INTO circulars (title, content, priority, target_dept, target_year, target_role, attachment_url, event_date, event_type, created_by) VALUES (?,?,?,?,?,?,?,?,?,?)',
+                [title, content, priority || 'low', target_dept || 'All', target_year || 'All', target_role, attachment_url, ev_date, ev_type, req.user.id]
             );
 
             const circularId = result.insertId;
@@ -145,6 +149,75 @@ router.get('/:id/analytics', async (req, res, next) => {
             read_count: readRows[0].read_count || 0,
             total_count: totalRows[0].total_count || 0,
             unread_count: Math.max(0, (totalRows[0].total_count || 0) - (readRows[0].read_count || 0))
+        });
+    } catch (err) {
+        next(err);
+    }
+});
+
+// ── Analytics summary (admin & staff) ────────────────────
+router.get('/stats/summary', async (req, res, next) => {
+    try {
+        if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+
+        // Filter: admin sees all, staff sees only their own
+        const staffFilter = req.user.role === 'staff' ? 'WHERE c.created_by = ?' : '';
+        const params = req.user.role === 'staff' ? [req.user.id] : [];
+
+        // Total circulars
+        const [totalCirc] = await db.query(`SELECT COUNT(*) AS cnt FROM circulars c ${staffFilter}`, params);
+
+        // Total reads across all circulars
+        const [totalReads] = await db.query(
+            `SELECT COUNT(*) AS cnt FROM circular_reads cr
+             JOIN circulars c ON cr.circular_id = c.id ${staffFilter}`, params
+        );
+
+        // Total targeted users (sum of audiences for each circular)
+        const [circRows] = await db.query(`SELECT c.* FROM circulars c ${staffFilter} ORDER BY c.created_at DESC`, params);
+
+        let totalAudience = 0;
+        let perCircular = [];
+
+        for (const circ of circRows) {
+            const [tgt] = await db.query(
+                `SELECT COUNT(*) AS cnt FROM users WHERE (? = 'All' OR role = ?) AND (? = 'All' OR department = ?)`,
+                [circ.target_role, circ.target_role, circ.target_dept, circ.target_dept]
+            );
+            const [rd] = await db.query(
+                'SELECT COUNT(*) AS cnt FROM circular_reads WHERE circular_id = ?', [circ.id]
+            );
+            const audience = tgt[0].cnt;
+            const reads = rd[0].cnt;
+            totalAudience += audience;
+
+            perCircular.push({
+                id: circ.id,
+                title: circ.title,
+                priority: circ.priority,
+                created_at: circ.created_at,
+                audience,
+                reads,
+                read_rate: audience > 0 ? Math.round((reads / audience) * 100) : 0,
+            });
+        }
+
+        const overallReadRate = totalAudience > 0 ? Math.round((totalReads[0].cnt / totalAudience) * 100) : 0;
+
+        // Comments count
+        const [totalComments] = await db.query(
+            `SELECT COUNT(*) AS cnt FROM comments cm JOIN circulars c ON cm.circular_id = c.id ${staffFilter}`, params
+        );
+
+        res.json({
+            total_circulars: totalCirc[0].cnt,
+            total_reads: totalReads[0].cnt,
+            total_audience: totalAudience,
+            overall_read_rate: overallReadRate,
+            total_comments: totalComments[0].cnt,
+            per_circular: perCircular.slice(0, 10), // top 10 recent
         });
     } catch (err) {
         next(err);

@@ -881,3 +881,158 @@ tbody tr:hover {
     color: var(--text-dim);
     line-height: 1.5;
 }
+
+/* ──────────── Pinned Urgent Circulars ──────────── */
+.circular-item.pinned {
+    border-left: 3px solid var(--urgent);
+    animation: pinPulse 2s ease-in-out infinite;
+    position: relative;
+}
+
+.pin-badge {
+    position: absolute;
+    top: 8px;
+    right: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--urgent);
+    background: rgba(255, 107, 107, 0.1);
+    padding: 2px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.3px;
+}
+
+@keyframes pinPulse {
+
+    0%,
+    100% {
+        border-left-color: var(--urgent);
+    }
+
+    50% {
+        border-left-color: rgba(255, 107, 107, 0.4);
+    }
+}
+
+/* ──────────── Analytics Dashboard ──────────── */
+.analytics-dashboard .card {
+    backdrop-filter: blur(12px);
+}
+
+.analytics-dashboard table th {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-dim);
+    padding: 8px 12px;
+    text-align: center;
+}
+
+.analytics-dashboard table td {
+    padding: 10px 12px;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* ──────────── Feedback Section ──────────── */
+.feedback-section textarea:focus,
+.feedback-section select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ──────────── Calendar Event Types ──────────── */
+.event-marker.celebration {
+    background: rgba(253, 203, 110, 0.3);
+    color: #fdcb6e;
+    border-left: 2px solid #fdcb6e;
+}
+
+.event-marker.exam {
+    background: rgba(225, 112, 85, 0.3);
+    color: #e17055;
+    border-left: 2px solid #e17055;
+}
+
+.event-marker.holiday {
+    background: rgba(0, 184, 148, 0.3);
+    color: #00b894;
+    border-left: 2px solid #00b894;
+}
+
+.event-marker.workshop {
+    background: rgba(108, 92, 231, 0.3);
+    color: #a29bfe;
+    border-left: 2px solid #a29bfe;
+}
+
+.event-marker.seminar {
+    background: rgba(0, 206, 209, 0.3);
+    color: #00cec9;
+    border-left: 2px solid #00cec9;
+}
+
+.event-marker.deadline {
+    background: rgba(255, 107, 107, 0.3);
+    color: #ff6b6b;
+    border-left: 2px solid #ff6b6b;
+}
+
+.event-marker.event {
+    background: rgba(162, 155, 254, 0.3);
+    color: #a29bfe;
+    border-left: 2px solid #a29bfe;
+}
+
+.event-marker.google {
+    background: rgba(66, 133, 244, 0.3);
+    color: #4285f4;
+    border-left: 2px solid #4285f4;
+}
+
+.event-marker.circular {
+    background: rgba(108, 92, 231, 0.2);
+    color: var(--accent);
+    border-left: 2px solid var(--accent);
+}
+
+.badge-celebration {
+    background: rgba(253, 203, 110, 0.2);
+    color: #fdcb6e;
+}
+
+.badge-exam {
+    background: rgba(225, 112, 85, 0.2);
+    color: #e17055;
+}
+
+.badge-holiday {
+    background: rgba(0, 184, 148, 0.2);
+    color: #00b894;
+}
+
+.badge-workshop {
+    background: rgba(108, 92, 231, 0.2);
+    color: #a29bfe;
+}
+
+.badge-seminar {
+    background: rgba(0, 206, 209, 0.2);
+    color: #00cec9;
+}
+
+.badge-deadline {
+    background: rgba(255, 107, 107, 0.2);
+    color: #ff6b6b;
+}
+
+.badge-event {
+    background: rgba(162, 155, 254, 0.2);
+    color: #a29bfe;
+}
+
+.badge-google {
+    background: rgba(66, 133, 244, 0.2);
+    color: #4285f4;
+}

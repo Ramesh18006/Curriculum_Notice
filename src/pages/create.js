@@ -2,6 +2,7 @@ import { createCircular } from '../api.js';
 import { getUser } from '../state.js';
 import { navigate } from '../router.js';
 import { renderApp, toast } from '../utils.js';
+import { t } from '../i18n.js';
 
 export function renderCreate() {
   const user = getUser() || {};
@@ -9,53 +10,53 @@ export function renderCreate() {
 
   renderApp(`
     <div class="create-page">
-      <button class="btn btn-ghost" id="back-btn">← Back to Dashboard</button>
-      <h2>Create New Circular</h2>
+      <button class="btn btn-ghost" id="back-btn">${t('backToDashboard')}</button>
+      <h2>${t('createTitle')}</h2>
       <div class="card">
         <div class="form-group">
-          <label for="c-title">Title</label>
-          <input id="c-title" placeholder="Circular title" maxlength="255" />
+          <label for="c-title">${t('titleLabel')}</label>
+          <input id="c-title" placeholder="${t('titlePlaceholder')}" maxlength="255" />
         </div>
         <div class="form-group">
-          <label for="c-content">Content</label>
-          <textarea id="c-content" placeholder="Write the circular content…" rows="4"></textarea>
+          <label for="c-content">${t('contentLabel')}</label>
+          <textarea id="c-content" placeholder="${t('contentPlaceholder')}" rows="4"></textarea>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="c-priority">Priority</label>
+            <label for="c-priority">${t('priorityLabel')}</label>
             <select id="c-priority">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="urgent">Urgent</option>
+              <option value="low">${t('priorityLow')}</option>
+              <option value="medium">${t('priorityMedium')}</option>
+              <option value="urgent">${t('priorityUrgent')}</option>
             </select>
           </div>
           <div class="form-group">
-            <label for="c-role">Target Role</label>
+            <label for="c-role">${t('targetRole')}</label>
             <select id="c-role" ${isStaff ? 'disabled' : ''}>
-              ${isStaff ? '<option value="student">Students Only</option>' : `
-                <option value="All">Everyone</option>
-                <option value="student">Students Only</option>
-                <option value="staff">Staff Only</option>
+              ${isStaff ? `<option value="student">${t('studentsOnly')}</option>` : `
+                <option value="All">${t('everyone')}</option>
+                <option value="student">${t('studentsOnly')}</option>
+                <option value="staff">${t('staffOnly')}</option>
               `}
             </select>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="c-dept">Target Department</label>
+            <label for="c-dept">${t('targetDept')}</label>
             <select id="c-dept">
-              <option value="All">All Departments</option>
+              <option value="All">${t('allDepts')}</option>
               <option value="CSE">CSE</option>
               <option value="ECE">ECE</option>
+              <option value="EEE">EEE</option>
               <option value="MECH">MECH</option>
               <option value="CIVIL">CIVIL</option>
-              <option value="EEE">EEE</option>
             </select>
           </div>
           <div class="form-group">
-            <label for="c-year">Target Year</label>
+            <label for="c-year">${t('targetYear')}</label>
             <select id="c-year">
-              <option value="All">All Years</option>
+              <option value="All">${t('allYears')}</option>
               <option value="I">I</option>
               <option value="II">II</option>
               <option value="III">III</option>
@@ -64,12 +65,31 @@ export function renderCreate() {
           </div>
         </div>
         <div class="form-group">
-          <label for="c-attachment">📎 Attachment (PDF or Image, max 10 MB)</label>
+          <label for="c-attachment">${t('attachmentLabel')}</label>
           <input type="file" id="c-attachment" accept=".pdf,.jpg,.jpeg,.png,.gif,.webp" />
-          <small style="color: var(--text-dim);margin-top:4px;display:block;">Optional — students will see this inside the circular detail view.</small>
+          <small style="color: var(--text-dim);margin-top:4px;display:block;">${t('attachmentHint')}</small>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="c-event-date">${t('eventDateLabel')}</label>
+            <input type="date" id="c-event-date" />
+            <small style="color: var(--text-dim);margin-top:4px;display:block;">${t('eventDateHint')}</small>
+          </div>
+          <div class="form-group">
+            <label for="c-event-type">${t('eventTypeLabel')}</label>
+            <select id="c-event-type">
+              <option value="event">${t('eventGeneral')}</option>
+              <option value="celebration">${t('eventCelebration')}</option>
+              <option value="exam">${t('eventExam')}</option>
+              <option value="holiday">${t('eventHoliday')}</option>
+              <option value="workshop">${t('eventWorkshop')}</option>
+              <option value="seminar">${t('eventSeminar')}</option>
+              <option value="deadline">${t('eventDeadline')}</option>
+            </select>
+          </div>
         </div>
         <div class="form-actions">
-          <button class="btn btn-primary" id="publish-btn">Publish Circular</button>
+          <button class="btn btn-primary" id="publish-btn">${t('publishBtn')}</button>
         </div>
       </div>
     </div>
@@ -89,11 +109,11 @@ async function handleCreate() {
   const target_year = document.getElementById('c-year').value;
   const fileInput = document.getElementById('c-attachment');
 
-  if (!title || !content) return toast('Title and content are required', 'warning');
+  if (!title || !content) return toast(t('titleContentRequired'), 'warning');
 
   const btn = document.getElementById('publish-btn');
   btn.disabled = true;
-  btn.textContent = 'Publishing…';
+  btn.textContent = t('publishing');
 
   try {
     const formData = new FormData();
@@ -106,14 +126,20 @@ async function handleCreate() {
     if (fileInput.files[0]) {
       formData.append('attachment', fileInput.files[0]);
     }
+    const eventDate = document.getElementById('c-event-date').value;
+    const eventType = document.getElementById('c-event-type').value;
+    if (eventDate) {
+      formData.append('event_date', eventDate);
+      formData.append('event_type', eventType);
+    }
 
     await createCircular(formData);
-    toast('Circular published!', 'success');
+    toast(t('published'), 'success');
     navigate('#dashboard');
   } catch (err) {
     toast(err.message || 'Failed to create circular', 'error');
   } finally {
     btn.disabled = false;
-    btn.textContent = 'Publish Circular';
+    btn.textContent = t('publishBtn');
   }
 }

@@ -25,6 +25,17 @@ async function fix() {
             console.log('✔ attachment_url column already exists');
         }
 
+        // Check if event_date exists in circulars
+        const [evCols] = await db.query('SHOW COLUMNS FROM circulars LIKE "event_date"');
+        if (evCols.length === 0) {
+            console.log('➕ Adding event_date and event_type to circulars table…');
+            await db.query("ALTER TABLE circulars ADD COLUMN event_date DATE DEFAULT NULL AFTER attachment_url");
+            await db.query("ALTER TABLE circulars ADD COLUMN event_type VARCHAR(30) DEFAULT NULL AFTER event_date");
+            console.log('✅ Added event_date and event_type columns');
+        } else {
+            console.log('✔ event_date column already exists');
+        }
+
         // Create comments table if it doesn't exist
         await db.query(`
             CREATE TABLE IF NOT EXISTS comments (
@@ -38,6 +49,19 @@ async function fix() {
             )
         `);
         console.log('✔ comments table ready');
+
+        // Create feedback table if it doesn't exist
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS feedback (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                user_id     INT NOT NULL,
+                message     TEXT NOT NULL,
+                category    VARCHAR(50) DEFAULT 'general',
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            )
+        `);
+        console.log('✔ feedback table ready');
 
         console.log('🚀 Database is up to date');
         process.exit(0);

@@ -38,6 +38,8 @@ CREATE TABLE circulars (
     target_year VARCHAR(10)  DEFAULT 'All',
     target_role ENUM('All', 'staff', 'student') DEFAULT 'All',
     attachment_url VARCHAR(500) DEFAULT NULL,
+    event_date    DATE DEFAULT NULL,
+    event_type    VARCHAR(30) DEFAULT NULL,
     created_by  INT,
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
@@ -104,6 +106,16 @@ CREATE TABLE comments (
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (circular_id) REFERENCES circulars(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id)     REFERENCES users(id)     ON DELETE CASCADE
+);
+
+-- ── Feedback / Ideas ────────────────────────────────────
+CREATE TABLE feedback (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    user_id     INT NOT NULL,
+    message     TEXT NOT NULL,
+    category    VARCHAR(50) DEFAULT 'general',
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- ┌──────────────────────────────────────────────────────┐

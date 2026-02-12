@@ -51,14 +51,38 @@ router.get('/auth/callback', async (req, res, next) => {
 // ── Get Events (Merged) ───────────────────────────────────
 router.get('/events', authenticate, async (req, res, next) => {
   try {
-    // 1. Fetch from local DB (circulars + exams + holidays)
-    const [dbEvents] = await db.query(`
-      SELECT 'circular' as type, title, DATE_FORMAT(created_at, '%Y-%m-%d') as date, content as description FROM circulars
-      WHERE (target_dept = 'All' OR target_dept = ?)
-        AND (target_role = 'All' OR target_role = ?)
-      UNION ALL
-      SELECT type, title, DATE_FORMAT(event_date, '%Y-%m-%d') as date, description FROM events
-    `, [req.user.department || 'All', req.user.role]);
+    // 1. Fetch from local DB (circulars with event dates + standalone events)
+    // Admin sees ALL events; Staff sees their own + targeted; Students see only targeted
+    let circularQuery, circularParams;
+
+    if (req.user.role === 'admin') {
+      circularQuery = `
+        SELECT COALESCE(event_type, 'circular') as type, title,
+               DATE_FORMAT(event_date, '%Y-%m-%d') as date, content as description
+        FROM circulars WHERE event_date IS NOT NULL`;
+      circularParams = [];
+    } else if (req.user.role === 'staff') {
+      circularQuery = `
+        SELECT COALESCE(event_type, 'circular') as type, title,
+               DATE_FORMAT(event_date, '%Y-%m-%d') as date, content as description
+        FROM circulars WHERE event_date IS NOT NULL
+          AND (created_by = ? OR target_role = 'All' OR target_role = 'staff')`;
+      circularParams = [req.user.id];
+    } else {
+      circularQuery = `
+        SELECT COALESCE(event_type, 'circular') as type, title,
+               DATE_FORMAT(event_date, '%Y-%m-%d') as date, content as description
+        FROM circulars WHERE event_date IS NOT NULL
+          AND (target_dept = 'All' OR target_dept = ?)
+          AND (target_role = 'All' OR target_role = ?)`;
+      circularParams = [req.user.department || 'All', req.user.role];
+    }
+
+    const [circularEvents] = await db.query(circularQuery, circularParams);
+    const [standaloneEvents] = await db.query(
+      `SELECT type, title, DATE_FORMAT(event_date, '%Y-%m-%d') as date, description FROM events`
+    );
+    const dbEvents = [...circularEvents, ...standaloneEvents];
 
     // 2. Fetch from Google if connected
     let googleEvents = [];
